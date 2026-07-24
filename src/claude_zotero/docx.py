@@ -38,13 +38,7 @@ def _csl_by_citekey(bib):
 
 
 def _zotero_version():
-    for p in ("/Applications/Zotero.app/Contents/Info.plist",):
-        try:
-            return subprocess.run(["plutil", "-extract", "CFBundleShortVersionString", "raw", p],
-                                  capture_output=True, text=True).stdout.strip() or "6.0.0"
-        except Exception:
-            pass
-    return "6.0.0"
+    return zotero.zotero_version()
 
 
 def _field(instr, display):

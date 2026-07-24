@@ -83,9 +83,13 @@ version of this that lets a cloud sandbox touch your local library.
 
 | Tool | What it does |
 |---|---|
-| `zotero_status()` | Data dir, library size, connector reachable, pandoc present |
+| `zotero_status()` | Data dir, library size, Zotero version, connector reachable, pandoc + PDF extractor |
 | `zotero_search(query, limit)` | Search your library by title/author/DOI → citekeys to cite |
-| `zotero_add(dois)` | **Add papers by DOI.** Skips ones already present (returns the existing citekey). Returns `{doi, status, citekey}` with status `added` / `reused` / `failed` |
+| **`zotero_read(citekey, max_chars, offset)`** | **Read a paper's full text** so the agent writes from the actual content, not the title. Uses the attached PDF; falls back to fetching an open-access copy into a local cache |
+| `zotero_add(identifiers)` | **Add papers by DOI, arXiv ID, PMID, ISBN, or URL.** Skips ones already present (returns the existing citekey). Returns `{identifier, kind, status, citekey}` |
+| `find_related(seed, direction, limit)` | **Snowball a review** from a seed citekey/DOI via OpenAlex — its references and the works citing it, each marked `in_library` |
+| `search_literature(query, limit, from_year)` | Topic search across OpenAlex (beyond your library), marking what you already have |
+| `zotero_collections()` | List collections with item counts |
 | `zotero_refresh(collection?)` | Re-export `references.bib` + citemap (optionally one collection) |
 | `build_live_docx(markdown, output_path, style?)` | Markdown citing `[@citekey]` → `.docx` with live Zotero fields |
 
@@ -134,11 +138,43 @@ Zotero stores Word citations as field codes. This server generates them directly
 
 Because the item URIs point at real entries in your library, Zotero resolves them on **Refresh**.
 
+## Reading papers, not just citing them
+
+`zotero_read` is what stops an agent writing a "literature review" from titles alone:
+
+```
+zotero_read("nguyen2023comprehensive")
+→ {source: "zotero-attachment", pages: 32, total_chars: 138370, text: "..."}
+```
+
+- Uses the **PDF attached in Zotero** when there is one.
+- Otherwise looks for an **open-access copy** (OpenAlex → Unpaywall → arXiv) and caches it under
+  `~/.claude-zotero/pdf-cache`. **Zotero itself is never modified.**
+- Page long papers with `offset` / `max_chars` so a 100-page PDF doesn't flood the context.
+- Paywalled papers with no attachment return a clear message rather than silently returning nothing.
+
+### Snowballing a literature review
+
+```
+find_related("sakthivel2024influence")   → references + citing works, each flagged in_library
+search_literature("CO2 brine interfacial tension ML", from_year=2023)
+zotero_add([...the DOIs you want...])    → citekeys
+zotero_read("<citekey>")                 → the actual text
+build_live_docx(draft, "review.docx")    → live Zotero citations
+```
+
 ## Notes & limitations
 
 - **Zotero must be running** to add papers (the connector is part of the app). Reading/searching and
   building documents work offline.
-- New items land in **My Library** (or whatever collection is selected in Zotero).
+- New items land in **My Library** (or whatever collection is selected in Zotero). Programmatic
+  collection targeting is not supported: it requires the connector's `saveItems`/`updateSession` flow,
+  which was tested and **destabilised the Zotero process**, so this server deliberately uses only the
+  stable `/connector/import` path.
+- PDFs are **never attached** to Zotero for the same reason — open-access copies are cached locally
+  for reading instead.
+- `zotero_read` cannot extract text from **scanned/image PDFs** (no OCR), and paywalled papers with no
+  attachment can't be read at all.
 - Citekeys are generated as `lastnameyearword` and are stable for a given item.
 - Papers without a DOI aren't supported by `zotero_add` yet — add them in Zotero, then `zotero_refresh()`.
 - The live-field docx has been validated against Zotero 7+/9 on macOS. If Refresh doesn't resolve

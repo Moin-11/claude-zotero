@@ -1,6 +1,6 @@
 [project]
 name = "claude-zotero"
-version = "0.1.0"
+version = "0.2.0"
 description = "MCP server that lets AI agents add papers to Zotero by DOI and write Word documents with live, refreshable Zotero citations."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -12,7 +12,7 @@ classifiers = [
   "License :: OSI Approved :: MIT License",
   "Intended Audience :: Science/Research",
 ]
-dependencies = ["mcp>=1.2.0"]
+dependencies = ["mcp>=1.2.0", "pypdf>=4.0.0"]
 
 [project.urls]
 Homepage = "https://github.com/Moin-11/claude-zotero"
